@@ -27,6 +27,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/properties', require('./routes/properties'));
 app.use('/api/tenants', require('./routes/tenants'));
 app.use('/api/transactions', require('./routes/transactions'));
+app.use('/api/settings', require('./routes/settings'));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

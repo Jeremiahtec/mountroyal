@@ -17,8 +17,8 @@ export default function PropertyDetails() {
     try {
       // Fetch the single property AND all tenants simultaneously
       const [propertyRes, tenantsRes] = await Promise.all([
-        fetch(`http://localhost:5000/api/properties/${id}`),
-        fetch('http://localhost:5000/api/tenants')
+        fetch(`https://mountroyal-api2.onrender.com/api/properties/${id}`),
+        fetch('https://mountroyal-api2.onrender.com/api/tenants')
       ]);
 
       if (!propertyRes.ok) throw new Error("Property not found");

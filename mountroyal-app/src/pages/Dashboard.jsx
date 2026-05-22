@@ -14,9 +14,9 @@ export default function Dashboard() {
     const fetchDashboardData = async () => {
       try {
         const [propRes, tenantRes, txnRes] = await Promise.all([
-          fetch('http://localhost:5000/api/properties'),
-          fetch('http://localhost:5000/api/tenants'),
-          fetch('http://localhost:5000/api/transactions')
+          fetch('https://mountroyal-api2.onrender.com/api/properties'),
+          fetch('https://mountroyal-api2.onrender.com/api/tenants'),
+          fetch('https://mountroyal-api2.onrender.com/api/transactions')
         ]);
         
         setData({

@@ -42,7 +42,7 @@ export default function Properties() {
 
   const fetchProperties = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/properties');
+      const response = await fetch('https://mountroyal-api2.onrender.com/api/properties');
       const data = await response.json();
       setPropertiesData(data);
       setIsLoading(false);
@@ -58,8 +58,8 @@ export default function Properties() {
   const handleSaveProperty = async () => {
     try {
       const url = editingId 
-        ? `http://localhost:5000/api/properties/${editingId}` 
-        : 'http://localhost:5000/api/properties';
+        ? `https://mountroyal-api2.onrender.com/api/properties/${editingId}` 
+        : 'https://mountroyal-api2.onrender.com/api/properties';
         
       const method = editingId ? 'PUT' : 'POST';
 
@@ -83,7 +83,7 @@ export default function Properties() {
     if (!window.confirm("Are you sure you want to delete this property? This will also remove all associated tenants!")) return;
     
     try {
-      await fetch(`http://localhost:5000/api/properties/${id}`, { method: 'DELETE' });
+      await fetch(`https://mountroyal-api2.onrender.com/api/properties/${id}`, { method: 'DELETE' });
       fetchProperties();
       setActiveMenu(null);
     } catch (error) {

@@ -26,8 +26,8 @@ export default function Ledger() {
   const fetchData = async () => {
     try {
       const [txnsRes, tenantsRes] = await Promise.all([
-        fetch('http://localhost:5000/api/transactions'),
-        fetch('http://localhost:5000/api/tenants') // We need tenants for the dropdown and stats
+        fetch('https://mountroyal-api2.onrender.com/api/transactions'),
+        fetch('https://mountroyal-api2.onrender.com/api/tenants') // We need tenants for the dropdown and stats
       ]);
       
       setTransactions(await txnsRes.json());
@@ -42,7 +42,7 @@ export default function Ledger() {
   // --- LOG PAYMENT ---
   const handleLogPayment = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/transactions', {
+      const response = await fetch('https://mountroyal-api2.onrender.com/api/transactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)

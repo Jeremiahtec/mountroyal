@@ -42,8 +42,8 @@ export default function Tenants() {
   const fetchData = async () => {
     try {
       const [tenantsRes, propertiesRes] = await Promise.all([
-        fetch('http://localhost:5000/api/tenants'),
-        fetch('http://localhost:5000/api/properties')
+        fetch('https://mountroyal-api2.onrender.com/api/tenants'),
+        fetch('https://mountroyal-api2.onrender.com/api/properties')
       ]);
       const tenants = await tenantsRes.json();
       const properties = await propertiesRes.json();
@@ -62,8 +62,8 @@ export default function Tenants() {
   const handleSaveTenant = async () => {
     try {
       const url = editingId 
-        ? `http://localhost:5000/api/tenants/${editingId}` 
-        : 'http://localhost:5000/api/tenants';
+        ? `https://mountroyal-api2.onrender.com/api/tenants/${editingId}` 
+        : 'https://mountroyal-api2.onrender.com/api/tenants';
         
       const method = editingId ? 'PUT' : 'POST';
 
@@ -87,7 +87,7 @@ export default function Tenants() {
     if (!window.confirm("Are you sure you want to remove this tenant? This action cannot be undone.")) return;
     
     try {
-      await fetch(`http://localhost:5000/api/tenants/${id}`, { method: 'DELETE' });
+      await fetch(`https://mountroyal-api2.onrender.com/api/tenants/${id}`, { method: 'DELETE' });
       fetchData(); // Refresh table
       setActiveMenu(null);
     } catch (error) {

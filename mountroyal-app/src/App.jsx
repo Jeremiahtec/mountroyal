@@ -6,6 +6,7 @@ import PropertyDetails from './pages/PropertyDetails'; // <-- Make sure this fil
 import Tenants from './pages/Tenants';
 import Ledger from './pages/Ledger';
 import Automation from './pages/Automation';
+import AccountSettings from './pages/AccountSettings';
 
 export default function App() {
   return (
@@ -26,6 +27,8 @@ export default function App() {
           <Route path="tenants" element={<Tenants />} />
           <Route path="ledger" element={<Ledger />} />
           <Route path="automation" element={<Automation />} />
+            <Route path="/settings" element={<AccountSettings />} /> {/* <-- Add this! */}
+
           
         </Route>
       </Routes>

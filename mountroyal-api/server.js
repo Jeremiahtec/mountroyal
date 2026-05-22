@@ -10,7 +10,17 @@ app.use(cors({
     credentials: true
 }));
 
+
 app.use(express.json());
+const corsOptions = {
+  origin: [
+    'http://localhost:5173',           // For local development
+    'https://mountroyal.vercel.app'    // <--- ADD YOUR LIVE VERCEL URL HERE
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true
+};
+app.use(cors(corsOptions));
 
 // --- Test Route ---
 app.get('/api/health', (req, res) => {

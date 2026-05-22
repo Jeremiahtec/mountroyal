@@ -17,8 +17,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // Preflight handler
-
+app.options('/(.*)', cors(corsOptions)); // Preflight handler
 app.use(express.json());
 
 // --- API Routes ---

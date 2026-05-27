@@ -20,44 +20,43 @@ router.get('/', async (req, res) => {
     }
 });
 
-// POST: Add new tenant AND sync to Ledger
+// POST: Add new tenant AND sync exact amount paid to Ledger
 router.post('/', async (req, res) => {
-    const { full_name, email, phone, property_id, room_assigned, rent_amount, next_due_date, status } = req.body;
+    // We destructured amount_paid from req.body
+    const { full_name, email, phone, property_id, room_assigned, rent_amount, amount_paid, next_due_date, status } = req.body;
 
-    // Use a client for Transactions (Atomic operations)
     const client = await pool.connect();
     
     try {
-        await client.query('BEGIN'); // Start Transaction
+        await client.query('BEGIN');
 
-        // 1. Insert the Tenant (This fixes the Assignment issue)
+        // 1. Insert the Tenant (now includes amount_paid)
         const tenantQuery = `
-            INSERT INTO tenants (full_name, email, phone, property_id, room_assigned, rent_amount, next_due_date, status)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            INSERT INTO tenants (full_name, email, phone, property_id, room_assigned, rent_amount, amount_paid, next_due_date, status)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             RETURNING *;
         `;
         const tenantResult = await client.query(tenantQuery, [
-            full_name, email, phone, property_id || null, room_assigned, rent_amount, next_due_date, status
+            full_name, email, phone, property_id || null, room_assigned, rent_amount, amount_paid || 0, next_due_date, status
         ]);
         const newTenant = tenantResult.rows[0];
 
-        // 2. Sync to Ledger (This fixes the Ledger issue)
-        if (status === 'Paid') {
+        // 2. Sync to Ledger (Uses amount_paid instead of rent_amount)
+        if (Number(amount_paid) > 0) {
             const ledgerQuery = `
                 INSERT INTO transactions (tenant_id, property_id, amount, transaction_type, status, date)
                 VALUES ($1, $2, $3, 'Rent Payment', 'Completed', CURRENT_DATE);
             `;
-            // Assumes you have a transactions table. Adjust column names if your ledger schema differs.
-            await client.query(ledgerQuery, [newTenant.id, property_id || null, rent_amount]);
+            await client.query(ledgerQuery, [newTenant.id, property_id || null, amount_paid]);
         }
 
-        await client.query('COMMIT'); // Save everything
+        await client.query('COMMIT'); 
         res.status(201).json(newTenant);
         
     } catch (err) {
-        await client.query('ROLLBACK'); // Cancel everything if there is an error
+        await client.query('ROLLBACK'); 
         console.error('Transaction Failed:', err.message);
-        res.status(500).json({ error: 'Failed to onboard tenant and sync ledger' });
+        res.status(500).json({ error: 'Failed to onboard tenant' });
     } finally {
         client.release();
     }

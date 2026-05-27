@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { MapPin, MoreVertical, Filter, LayoutGrid, List, Plus, Loader2, Edit2, Trash2 } from 'lucide-react';
 import Drawer from '../components/Drawer'; 
-import { Link } from 'react-router-dom';
 
 export default function Properties() {
-  const navigate = useNavigate(); // For navigating to the details page
+  const navigate = useNavigate();
 
   // --- STATE MANAGEMENT ---
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -43,9 +42,25 @@ export default function Properties() {
 
   const fetchProperties = async () => {
     try {
-      const response = await fetch('https://mountroyal-api2.onrender.com/api/properties');
-      const data = await response.json();
-      setPropertiesData(data);
+      // FRONTEND FIX: Fetch properties AND tenants simultaneously
+      const [propRes, tenantRes] = await Promise.all([
+        fetch('https://mountroyal-api2.onrender.com/api/properties'),
+        fetch('https://mountroyal-api2.onrender.com/api/tenants')
+      ]);
+      
+      const properties = await propRes.json();
+      const tenants = await tenantRes.json();
+
+      // Map over properties and manually count the assigned tenants
+      const propertiesWithOccupancy = properties.map(property => {
+        const assignedTenantsCount = tenants.filter(t => t.property_id === property.id).length;
+        return {
+          ...property,
+          occupied_rooms: assignedTenantsCount
+        };
+      });
+
+      setPropertiesData(propertiesWithOccupancy);
       setIsLoading(false);
     } catch (error) {
       console.error("Error fetching properties:", error);
@@ -54,8 +69,6 @@ export default function Properties() {
   };
 
   // --- CRUD OPERATIONS ---
-
-  // 1. SAVE (Handles both POST and PUT)
   const handleSaveProperty = async () => {
     try {
       const url = editingId 
@@ -71,7 +84,7 @@ export default function Properties() {
       });
       
       if (response.ok) {
-        fetchProperties(); // Refresh the grid
+        fetchProperties(); 
         closeDrawer();
       }
     } catch (error) {
@@ -79,7 +92,6 @@ export default function Properties() {
     }
   };
 
-  // 2. DELETE
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this property? This will also remove all associated tenants!")) return;
     
@@ -92,7 +104,6 @@ export default function Properties() {
     }
   };
 
-  // 3. EDIT (Populate Drawer)
   const handleEditClick = (property) => {
     setFormData({
       name: property.name,
@@ -171,11 +182,11 @@ export default function Properties() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredProperties.length > 0 ? (
             filteredProperties.map((property) => {
+              // Now dynamically uses the manually calculated occupied_rooms
               const occupied = property.occupied_rooms || 0; 
               const occupancyRate = property.total_rooms > 0 ? Math.round((occupied / property.total_rooms) * 100) : 0;
               
               return (
-                // THE CARD IS NOW CLICKABLE
                 <div 
                   key={property.id} 
                   onClick={() => navigate(`/properties/${property.id}`)}
@@ -208,7 +219,7 @@ export default function Properties() {
                       <div className="absolute right-6 top-6">
                         <button 
                           onClick={(e) => {
-                            e.stopPropagation(); // Prevents the card from being clicked
+                            e.stopPropagation(); 
                             setActiveMenu(activeMenu === property.id ? null : property.id);
                           }}
                           className="text-slate-400 hover:text-brandNavy transition-colors bg-white rounded-md p-1 shadow-sm border border-slate-100 hover:bg-slate-50"
@@ -267,7 +278,7 @@ export default function Properties() {
         </div>
       )}
 
-      {/* Dynamic Drawer (Handles both Add and Edit) */}
+      {/* Dynamic Drawer */}
       <Drawer isOpen={isDrawerOpen} onClose={closeDrawer} title={editingId ? "Edit Property Details" : "Add New Property"}>
         <div className="space-y-5 pb-8">
           <div>

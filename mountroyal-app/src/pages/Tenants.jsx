@@ -3,32 +3,27 @@ import { Search, Filter, Download, MoreHorizontal, Plus, Loader2, Edit2, Trash2 
 import Drawer from '../components/Drawer';
 
 export default function Tenants() {
-  // --- STATE MANAGEMENT ---
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5; 
 
-  // Database State
   const [tenantsData, setTenantsData] = useState([]);
   const [propertiesList, setPropertiesList] = useState([]); 
   const [isLoading, setIsLoading] = useState(true);
 
-  // CRUD State
-  const [editingId, setEditingId] = useState(null); // Tracks if we are editing an existing tenant
-  const [activeMenu, setActiveMenu] = useState(null); // Tracks which 3-dot menu is open
-  const menuRef = useRef(null); // For clicking outside to close menus
+  const [editingId, setEditingId] = useState(null); 
+  const [activeMenu, setActiveMenu] = useState(null); 
+  const menuRef = useRef(null); 
 
-  // Form State
-  const emptyForm = { full_name: '', email: '', phone: '', property_id: '', room_assigned: '', rent_amount: '', next_due_date: '', status: 'Paid' };
+  // ADDED: amount_paid to the form state
+  const emptyForm = { full_name: '', email: '', phone: '', property_id: '', room_assigned: '', rent_amount: '', amount_paid: '', next_due_date: '', status: 'Paid' };
   const [formData, setFormData] = useState(emptyForm);
 
-  // --- FETCH LIVE DATA ---
   useEffect(() => {
     fetchData();
   }, []);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -56,9 +51,6 @@ export default function Tenants() {
     }
   };
 
-  // --- CRUD OPERATIONS ---
-  
-  // 1. SAVE (Handles both POST and PUT)
   const handleSaveTenant = async () => {
     try {
       const url = editingId 
@@ -74,7 +66,7 @@ export default function Tenants() {
       });
       
       if (response.ok) {
-        fetchData(); // Refresh table
+        fetchData(); 
         closeDrawer();
       }
     } catch (error) {
@@ -82,24 +74,20 @@ export default function Tenants() {
     }
   };
 
-  // 2. DELETE
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to remove this tenant? This action cannot be undone.")) return;
     
     try {
       await fetch(`https://mountroyal-api2.onrender.com/api/tenants/${id}`, { method: 'DELETE' });
-      fetchData(); // Refresh table
+      fetchData(); 
       setActiveMenu(null);
     } catch (error) {
       console.error("Error deleting tenant:", error);
     }
   };
 
-  // 3. EDIT (Populate Drawer)
   const handleEditClick = (tenant) => {
-    // Format date for the HTML date input (YYYY-MM-DD)
     const formattedDate = new Date(tenant.next_due_date).toISOString().split('T')[0];
-    
     setFormData({
       ...tenant,
       next_due_date: formattedDate
@@ -115,8 +103,6 @@ export default function Tenants() {
     setFormData(emptyForm);
   };
 
-
-  // --- UTILS & LOGIC ---
   const getInitials = (name) => name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
   const getStatusStyle = (status) => {
     if (status === 'Paid') return 'bg-statusPaid text-statusPaidText';
@@ -184,7 +170,7 @@ export default function Tenants() {
                 <tr className="text-slate-400 text-[11px] uppercase tracking-wider font-bold border-b border-slate-100">
                   <th className="p-5">Tenant</th>
                   <th className="p-5">Property & Room</th>
-                  <th className="p-5">Rent Amount</th>
+                  <th className="p-5">Total Rent</th>
                   <th className="p-5">Next Due Date</th>
                   <th className="p-5">Status</th>
                   <th className="p-5 text-right">Actions</th>
@@ -221,7 +207,6 @@ export default function Tenants() {
                         </span>
                       </td>
                       <td className="p-5 text-right relative">
-                        {/* 3-DOT MENU BUTTON */}
                         <button 
                           onClick={(e) => {
                              e.stopPropagation();
@@ -232,7 +217,6 @@ export default function Tenants() {
                           <MoreHorizontal size={20} />
                         </button>
 
-                        {/* DROPDOWN MENU */}
                         {activeMenu === tenant.id && (
                           <div ref={menuRef} className="absolute right-8 mt-2 w-36 bg-white border border-slate-100 rounded-lg shadow-lg z-50 overflow-hidden py-1">
                             <button 
@@ -249,7 +233,6 @@ export default function Tenants() {
                             </button>
                           </div>
                         )}
-
                       </td>
                     </tr>
                   ))
@@ -298,9 +281,18 @@ export default function Tenants() {
             </select>
           </div>
           
-          <div className="grid grid-cols-2 gap-4">
-            <div><label className="block text-sm font-bold text-slate-700 mb-1">Room / Unit</label><input type="text" value={formData.room_assigned} onChange={(e) => setFormData({...formData, room_assigned: e.target.value})} className="w-full border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-brandNavy/20" placeholder="e.g. 4B" /></div>
-            <div><label className="block text-sm font-bold text-slate-700 mb-1">Rent Amount (₦)</label><input type="number" value={formData.rent_amount} onChange={(e) => setFormData({...formData, rent_amount: e.target.value})} className="w-full border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-brandNavy/20" placeholder="450000" /></div>
+          <div><label className="block text-sm font-bold text-slate-700 mb-1">Room / Unit</label><input type="text" value={formData.room_assigned} onChange={(e) => setFormData({...formData, room_assigned: e.target.value})} className="w-full border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-brandNavy/20" placeholder="e.g. 4B" /></div>
+
+          {/* THE NEW SPLIT PAYMENT SECTION */}
+          <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-1">Total Rent (₦)</label>
+              <input type="number" value={formData.rent_amount} onChange={(e) => setFormData({...formData, rent_amount: e.target.value})} className="w-full border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-brandNavy/20" placeholder="500000" />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-1 text-brandGreen">Amount Paid Now (₦)</label>
+              <input type="number" value={formData.amount_paid} onChange={(e) => setFormData({...formData, amount_paid: e.target.value})} className="w-full border border-brandGreen/30 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-brandGreen/20" placeholder="300000" />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

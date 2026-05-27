@@ -3,10 +3,18 @@ const router = express.Router();
 const pool = require('../config/db');
 
 // @route   GET /api/properties
-// @desc    Get all properties
+// @desc    Get all properties (UPDATED: Now includes active tenant count for Occupancy Progress Bars)
 router.get('/', async (req, res) => {
     try {
-        const allProperties = await pool.query('SELECT * FROM properties ORDER BY created_at DESC');
+        // This query grabs the properties AND counts matching tenants in one go
+        const query = `
+            SELECT 
+                p.*,
+                COALESCE((SELECT COUNT(*) FROM tenants t WHERE t.property_id = p.id), 0) AS occupied_rooms
+            FROM properties p
+            ORDER BY p.created_at DESC
+        `;
+        const allProperties = await pool.query(query);
         res.json(allProperties.rows);
     } catch (err) {
         console.error("❌ Error fetching properties:", err.message);
@@ -14,17 +22,21 @@ router.get('/', async (req, res) => {
     }
 });
 
-// @route   GET /api/properties/:id
-// @desc    Get a single property by its ID 
-router.get('/:id', async (req, res) => {
+// @route   GET /api/properties
+// @desc    Get all properties (with integer-casted active tenant count)
+router.get('/', async (req, res) => {
     try {
-        const { id } = req.params;
-        const property = await pool.query('SELECT * FROM properties WHERE id = $1', [id]);
-        
-        if (property.rows.length === 0) return res.status(404).json({ message: "Property not found" });
-        res.json(property.rows[0]);
+        const query = `
+            SELECT 
+                p.*,
+                (SELECT COUNT(*)::int FROM tenants t WHERE t.property_id = p.id) AS occupied_rooms
+            FROM properties p
+            ORDER BY p.created_at DESC
+        `;
+        const allProperties = await pool.query(query);
+        res.json(allProperties.rows);
     } catch (err) {
-        console.error("❌ Error fetching property details:", err.message);
+        console.error("❌ Error fetching properties:", err.message);
         res.status(500).send('Server Error');
     }
 });

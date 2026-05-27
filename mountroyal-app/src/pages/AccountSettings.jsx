@@ -5,11 +5,13 @@ export default function AccountSettings() {
   // --- STATE MANAGEMENT ---
   const [activeTab, setActiveTab] = useState('office_profile');
   
-  const [profileData, setProfileData] = useState({
-    full_name: 'Manager',
-    email: 'mountroyalng@gmail.com',
-    phone: '07079872890',
-    role: 'Operations Manager'
+ const [profileData, setProfileData] = useState({
+    full_name: '',
+    email: '',
+    phone: '',
+    role: 'Operations Manager',
+    company_name: '',    // <-- Add this
+    company_address: ''  // <-- Add this
   });
   
   const [isSaving, setIsSaving] = useState(false);
@@ -41,7 +43,9 @@ export default function AccountSettings() {
         body: JSON.stringify({
           full_name: profileData.full_name,
           email: profileData.email,
-          phone: profileData.phone
+          phone: profileData.phone,
+          company_name: profileData.company_name,       // <-- Add this
+          company_address: profileData.company_address  // <-- Add this
         }),
       });
 
@@ -108,7 +112,7 @@ export default function AccountSettings() {
     </div>
   );
 
-  const renderCompanyDetails = () => (
+const renderCompanyDetails = () => (
     <div className="animate-in fade-in duration-300">
       <div className="mb-8">
         <h2 className="text-xl font-bold text-brandNavy">Company Details</h2>
@@ -117,11 +121,23 @@ export default function AccountSettings() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div className="md:col-span-2">
           <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Registered Business Name</label>
-          <input type="text" defaultValue="Mountroyal Integrated Services" className="w-full border border-slate-200 rounded-lg p-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-brandNavy/30" />
+          <input 
+            type="text" 
+            value={profileData.company_name || ''} 
+            onChange={(e) => setProfileData({...profileData, company_name: e.target.value})}
+            className="w-full border border-slate-200 rounded-lg p-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-brandNavy/30" 
+          />
         </div>
         <div className="md:col-span-2">
-          <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider flex items-center gap-2"><MapPin size={14}/> Primary Office Address</label>
-          <input type="text" defaultValue="Ogbomoso, Oyo State" className="w-full border border-slate-200 rounded-lg p-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-brandNavy/30" />
+          <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider flex items-center gap-2">
+             Primary Office Address
+          </label>
+          <input 
+            type="text" 
+            value={profileData.company_address || ''} 
+            onChange={(e) => setProfileData({...profileData, company_address: e.target.value})}
+            className="w-full border border-slate-200 rounded-lg p-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-brandNavy/30" 
+          />
         </div>
       </div>
     </div>

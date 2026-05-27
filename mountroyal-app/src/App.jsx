@@ -9,6 +9,7 @@ import Properties from './pages/Properties';
 import AccountSettings from './pages/AccountSettings';
 import Tenants from './pages/Tenants';
 import Ledger from './pages/Ledger';
+import PropertyDetails from './pages/PropertyDetails';
 
 // --- 1. THE RESTORED LIGHT MODE ADMIN LAYOUT ---
 const AdminLayout = ({ onLogout }) => {
@@ -128,6 +129,7 @@ export default function App() {
           {/* All your connected routes */}
           <Route path="/" element={<Dashboard />} />
           <Route path="/properties" element={<Properties />} />
+          <Route path="/properties/:id" element={<PropertyDetails />} /> {/* <-- Add this line */}
           <Route path="/settings" element={<AccountSettings />} />
           <Route path="/tenants" element={<Tenants />} />
           <Route path="/ledger" element={<Ledger />} />

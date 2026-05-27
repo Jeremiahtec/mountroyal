@@ -2,74 +2,64 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
 
-// @route   GET /api/tenants
-// @desc    Get all tenants with their associated property name
+// GET: Fetch tenants (JOIN with properties to get the building name)
 router.get('/', async (req, res) => {
     try {
-        const allTenants = await pool.query(`
-            SELECT t.*, p.name as property_name 
-            FROM tenants t
-            LEFT JOIN properties p ON t.property_id = p.id
-            ORDER BY t.created_at DESC
-        `);
-        res.json(allTenants.rows);
+        // This JOIN fixes the issue of the property name not showing in the table
+        const query = `
+            SELECT tenants.*, properties.name AS property_name 
+            FROM tenants 
+            LEFT JOIN properties ON tenants.property_id = properties.id
+            ORDER BY tenants.id DESC;
+        `;
+        const result = await pool.query(query);
+        res.json(result.rows);
     } catch (err) {
-        console.error("❌ Error fetching tenants:", err.message);
+        console.error(err.message);
         res.status(500).send('Server Error');
     }
 });
 
-// @route   POST /api/tenants
-// @desc    Add a new tenant
+// POST: Add new tenant AND sync to Ledger
 router.post('/', async (req, res) => {
+    const { full_name, email, phone, property_id, room_assigned, rent_amount, next_due_date, status } = req.body;
+
+    // Use a client for Transactions (Atomic operations)
+    const client = await pool.connect();
+    
     try {
-        const { full_name, email, phone, property_id, room_assigned, rent_amount, next_due_date } = req.body;
+        await client.query('BEGIN'); // Start Transaction
 
-        const newTenant = await pool.query(
-            `INSERT INTO tenants (full_name, email, phone, property_id, room_assigned, rent_amount, next_due_date) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7) 
-             RETURNING *`,
-            [full_name, email, phone, property_id || null, room_assigned, rent_amount, next_due_date]
-        );
+        // 1. Insert the Tenant (This fixes the Assignment issue)
+        const tenantQuery = `
+            INSERT INTO tenants (full_name, email, phone, property_id, room_assigned, rent_amount, next_due_date, status)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING *;
+        `;
+        const tenantResult = await client.query(tenantQuery, [
+            full_name, email, phone, property_id || null, room_assigned, rent_amount, next_due_date, status
+        ]);
+        const newTenant = tenantResult.rows[0];
 
-        res.json(newTenant.rows[0]);
+        // 2. Sync to Ledger (This fixes the Ledger issue)
+        if (status === 'Paid') {
+            const ledgerQuery = `
+                INSERT INTO transactions (tenant_id, property_id, amount, transaction_type, status, date)
+                VALUES ($1, $2, $3, 'Rent Payment', 'Completed', CURRENT_DATE);
+            `;
+            // Assumes you have a transactions table. Adjust column names if your ledger schema differs.
+            await client.query(ledgerQuery, [newTenant.id, property_id || null, rent_amount]);
+        }
+
+        await client.query('COMMIT'); // Save everything
+        res.status(201).json(newTenant);
+        
     } catch (err) {
-        console.error("❌ Error adding tenant:", err.message);
-        res.status(500).send('Server Error');
-    }
-});
-
-// @route   PUT /api/tenants/:id
-// @desc    Update a tenant's info (Edit Mode)
-router.put('/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { full_name, email, phone, property_id, room_assigned, rent_amount, next_due_date, status } = req.body;
-
-        const updatedTenant = await pool.query(
-            `UPDATE tenants 
-             SET full_name = $1, email = $2, phone = $3, property_id = $4, room_assigned = $5, rent_amount = $6, next_due_date = $7, status = $8
-             WHERE id = $9 RETURNING *`,
-            [full_name, email, phone, property_id || null, room_assigned, rent_amount, next_due_date, status || 'Paid', id]
-        );
-
-        res.json(updatedTenant.rows[0]);
-    } catch (err) {
-        console.error("❌ Error updating tenant:", err.message);
-        res.status(500).send('Server Error');
-    }
-});
-
-// @route   DELETE /api/tenants/:id
-// @desc    Delete a tenant
-router.delete('/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        await pool.query('DELETE FROM tenants WHERE id = $1', [id]);
-        res.json({ message: "Tenant deleted successfully" });
-    } catch (err) {
-        console.error("❌ Error deleting tenant:", err.message);
-        res.status(500).send('Server Error');
+        await client.query('ROLLBACK'); // Cancel everything if there is an error
+        console.error('Transaction Failed:', err.message);
+        res.status(500).json({ error: 'Failed to onboard tenant and sync ledger' });
+    } finally {
+        client.release();
     }
 });
 

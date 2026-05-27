@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, MoreVertical, Filter, LayoutGrid, List, Plus, Loader2, Edit2, Trash2 } from 'lucide-react';
 import Drawer from '../components/Drawer'; 
+import { Link } from 'react-router-dom';
 
 export default function Properties() {
   const navigate = useNavigate(); // For navigating to the details page

@@ -1,8 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
 
-// Paste your exact URL and Anon Key here, just like you did on the frontend
-const supabaseUrl = 'YOUR_PROJECT_URL_HERE';
-const supabaseAnonKey = 'YOUR_ANON_PUBLIC_KEY_HERE';
+const supabaseUrl = 'https://nrpwaovxkshmukuowyrv.supabase.co/rest/v1/';
+const supabaseAnonKey = 'sb_publishable_xOvxuMLpF3_5pfZuZArdkQ_p9j7Em8i';
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, Filter, Download, MoreHorizontal, Plus, Loader2, Edit2, Trash2 } from 'lucide-react';
 import Drawer from '../components/Drawer';
-import { supabase } from '../supabaseClient'; // <-- 1. IMPORT SUPABASE
+import { supabase } from '../supabaseCLient';
 
 export default function Tenants() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);

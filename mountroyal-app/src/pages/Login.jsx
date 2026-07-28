@@ -1,83 +1,115 @@
 import { useState } from 'react';
-import { Building, Lock, Mail } from 'lucide-react';
+import { supabase } from '../supabaseCLient'; 
+import { Mail, Lock, Loader2 } from 'lucide-react';
 
-export default function Login({ onLogin }) {
-  const [credentials, setCredentials] = useState({ email: '', password: '' });
-  const [error, setError] = useState('');
+export default function Login() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
 
-  const handleLogin = (e) => {
+  const handleAuth = async (e) => {
     e.preventDefault();
-    setError('');
     setIsLoading(true);
+    setErrorMsg('');
 
-    // Hardcoded Admin Check (We will connect this to your Supabase/Render backend later)
-    setTimeout(() => {
-      if (credentials.email === 'mountroyalng@gmail.com' && credentials.password === 'admin123') {
-        onLogin(true);
+    try {
+      if (isSignUp) {
+        // Handle Registration
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+        if (error) throw error;
+        alert("Success! Check your email for the confirmation link.");
       } else {
-        setError('Invalid admin credentials. Access denied.');
-        setIsLoading(false);
+        // Handle Login
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+        // The session is automatically saved to local storage by Supabase!
+        window.location.href = "/"; // Redirect to dashboard
       }
-    }, 800);
+    } catch (error) {
+      setErrorMsg(error.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
+    <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4">
+      <div className="w-full max-w-md bg-slate-900 rounded-2xl shadow-2xl border border-slate-800 p-8 text-slate-100">
         
-        {/* Brand Header */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center border-2 border-slate-200 shadow-sm text-brandNavy mb-4">
-            <Building size={28} />
-          </div>
-          <h1 className="text-2xl font-extrabold text-brandNavy">Mountroyal Admin</h1>
-          <p className="text-sm text-slate-500 mt-1">Sign in to the operations control center</p>
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-extrabold text-white tracking-tight">
+            Mountroyal
+          </h2>
+          <p className="text-slate-400 mt-2 text-sm">
+            {isSignUp ? "Create your administrator account" : "Sign in to manage your properties"}
+          </p>
         </div>
 
-        {/* Login Form */}
-        <form onSubmit={handleLogin} className="space-y-6">
-          <div>
-            <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Office Email</label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-              <input 
-                type="email" 
-                required
-                placeholder="mountroyalng@gmail.com"
-                value={credentials.email}
-                onChange={(e) => setCredentials({...credentials, email: e.target.value})}
-                className="w-full border border-slate-200 rounded-lg py-3 pl-10 pr-4 text-slate-800 focus:outline-none focus:ring-2 focus:ring-brandNavy/30 transition-all"
-              />
-            </div>
+        {/* Error Message Display */}
+        {errorMsg && (
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-lg text-red-400 text-sm text-center font-medium">
+            {errorMsg}
+          </div>
+        )}
+
+        {/* Auth Form */}
+        <form onSubmit={handleAuth} className="space-y-5">
+          <div className="relative">
+            <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Admin Email"
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg py-3 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-brandNavy focus:ring-1 focus:ring-brandNavy transition-all"
+            />
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Admin Password</label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-              <input 
-                type="password" 
-                required
-                placeholder="••••••••"
-                value={credentials.password}
-                onChange={(e) => setCredentials({...credentials, password: e.target.value})}
-                className="w-full border border-slate-200 rounded-lg py-3 pl-10 pr-4 text-slate-800 focus:outline-none focus:ring-2 focus:ring-brandNavy/30 transition-all"
-              />
-            </div>
+          <div className="relative">
+            <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg py-3 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-brandNavy focus:ring-1 focus:ring-brandNavy transition-all"
+            />
           </div>
 
-          {error && <div className="text-red-500 text-sm font-medium text-center bg-red-50 p-2 rounded-lg">{error}</div>}
-
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={isLoading}
-            className="w-full bg-[#0B1A28] text-white py-3 rounded-lg font-bold hover:bg-slate-800 transition-colors disabled:opacity-50 mt-4"
+            className="w-full bg-brandNavy text-white py-3 rounded-lg font-bold hover:bg-slate-800 transition-colors shadow-lg flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed mt-4"
           >
-            {isLoading ? 'Authenticating...' : 'Secure Login'}
+            {isLoading ? <Loader2 size={18} className="animate-spin" /> : (isSignUp ? "Create Account" : "Sign In")}
           </button>
         </form>
-        
+
+        {/* Toggle Login/Signup */}
+        <div className="mt-8 text-center text-sm text-slate-500">
+          {isSignUp ? "Already have an account? " : "Need an admin account? "}
+          <button
+            onClick={() => {
+              setIsSignUp(!isSignUp);
+              setErrorMsg('');
+            }}
+            className="text-white font-bold hover:underline"
+          >
+            {isSignUp ? "Sign In" : "Sign Up"}
+          </button>
+        </div>
+
       </div>
     </div>
   );

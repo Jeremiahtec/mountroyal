@@ -4,7 +4,10 @@ const cors = require('cors');
 const pool = require('./config/db');
 
 const app = express();
+const verifyToken = require('./middleware/authMiddleware');
 
+const tenantsRouter = require('./routes/tenants');
+const propertiesRouter = require('./routes/properties');
 // --- CLEAN CORS CONFIGURATION ---
 const corsOptions = {
   origin: [
@@ -29,6 +32,8 @@ app.use('/api/tenants', require('./routes/tenants'));
 app.use('/api/transactions', require('./routes/transactions'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/dashboard', require('./routes/dashboard'));
+app.use('/api/tenants', verifyToken, tenantsRouter);
+app.use('/api/properties', verifyToken, propertiesRouter);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

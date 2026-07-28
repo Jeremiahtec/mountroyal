@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, Filter, Download, MoreHorizontal, Plus, Loader2, Edit2, Trash2 } from 'lucide-react';
 import Drawer from '../components/Drawer';
+import { supabase } from '../supabaseClient'; // <-- 1. IMPORT SUPABASE
 
 export default function Tenants() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -16,7 +17,9 @@ export default function Tenants() {
   const [activeMenu, setActiveMenu] = useState(null); 
   const menuRef = useRef(null); 
 
-  // ADDED: amount_paid to the form state
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [tenantToDelete, setTenantToDelete] = useState(null);
+
   const emptyForm = { full_name: '', email: '', phone: '', property_id: '', room_assigned: '', rent_amount: '', amount_paid: '', next_due_date: '', status: 'Paid' };
   const [formData, setFormData] = useState(emptyForm);
 
@@ -34,11 +37,20 @@ export default function Tenants() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // --- 2. SECURE FETCH CALL ---
   const fetchData = async () => {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      };
+
       const [tenantsRes, propertiesRes] = await Promise.all([
-        fetch('https://mountroyal-api2.onrender.com/api/tenants'),
-        fetch('https://mountroyal-api2.onrender.com/api/properties')
+        fetch('https://mountroyal-api2.onrender.com/api/tenants', { headers }),
+        fetch('https://mountroyal-api2.onrender.com/api/properties', { headers })
       ]);
       const tenants = await tenantsRes.json();
       const properties = await propertiesRes.json();
@@ -51,8 +63,12 @@ export default function Tenants() {
     }
   };
 
+  // --- 3. SECURE SAVE/UPDATE CALL ---
   const handleSaveTenant = async () => {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
       const url = editingId 
         ? `https://mountroyal-api2.onrender.com/api/tenants/${editingId}` 
         : 'https://mountroyal-api2.onrender.com/api/tenants';
@@ -61,7 +77,10 @@ export default function Tenants() {
 
       const response = await fetch(url, {
         method: method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        },
         body: JSON.stringify(formData)
       });
       
@@ -74,15 +93,32 @@ export default function Tenants() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to remove this tenant? This action cannot be undone.")) return;
+  const initiateDelete = (id) => {
+    setTenantToDelete(id);
+    setIsDeleteModalOpen(true);
+    setActiveMenu(null); 
+  };
+
+  // --- 4. SECURE DELETE CALL ---
+  const confirmDelete = async () => {
+    if (!tenantToDelete) return;
     
     try {
-      await fetch(`https://mountroyal-api2.onrender.com/api/tenants/${id}`, { method: 'DELETE' });
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      await fetch(`https://mountroyal-api2.onrender.com/api/tenants/${tenantToDelete}`, { 
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       fetchData(); 
-      setActiveMenu(null);
     } catch (error) {
       console.error("Error deleting tenant:", error);
+    } finally {
+      setIsDeleteModalOpen(false);
+      setTenantToDelete(null);
     }
   };
 
@@ -226,7 +262,7 @@ export default function Tenants() {
                               <Edit2 size={14} /> Edit Details
                             </button>
                             <button 
-                              onClick={() => handleDelete(tenant.id)}
+                              onClick={() => initiateDelete(tenant.id)}
                               className="w-full text-left px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
                             >
                               <Trash2 size={14} /> Remove
@@ -261,7 +297,7 @@ export default function Tenants() {
         )}
       </div>
 
-      {/* Dynamic Drawer (Handles both Add and Edit) */}
+      {/* Dynamic Drawer */}
       <Drawer isOpen={isDrawerOpen} onClose={closeDrawer} title={editingId ? "Edit Tenant Details" : "Add New Tenant"}>
         <div className="space-y-5 pb-8">
           <div><label className="block text-sm font-bold text-slate-700 mb-1">Full Name</label><input type="text" value={formData.full_name} onChange={(e) => setFormData({...formData, full_name: e.target.value})} className="w-full border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-brandNavy/20" placeholder="e.g. John Doe" /></div>
@@ -283,7 +319,6 @@ export default function Tenants() {
           
           <div><label className="block text-sm font-bold text-slate-700 mb-1">Room / Unit</label><input type="text" value={formData.room_assigned} onChange={(e) => setFormData({...formData, room_assigned: e.target.value})} className="w-full border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-brandNavy/20" placeholder="e.g. 4B" /></div>
 
-          {/* THE NEW SPLIT PAYMENT SECTION */}
           <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-1">Total Rent (₦)</label>
@@ -312,6 +347,35 @@ export default function Tenants() {
           </button>
         </div>
       </Drawer>
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white p-6 rounded-2xl shadow-xl max-w-sm w-full mx-4 border border-slate-100">
+            <h3 className="text-xl font-extrabold text-brandNavy mb-2">Remove Tenant</h3>
+            <p className="text-sm text-slate-500 mb-6 font-medium">
+              Are you sure you want to remove this tenant? Their financial records will be safely preserved in the ledger.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setIsDeleteModalOpen(false);
+                  setTenantToDelete(null);
+                }}
+                className="px-4 py-2 text-sm font-bold text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 text-sm font-bold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors shadow-sm"
+              >
+                Yes, Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

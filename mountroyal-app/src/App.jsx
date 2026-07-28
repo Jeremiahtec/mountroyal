@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet, Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Building2, Users, Receipt, Settings, LogOut } from 'lucide-react';
-import { supabase } from './supabaseCLient'; 
+import { supabase } from './supabaseClient'; 
 
 // Import all your fully-built Pages
 import Login from './pages/Login';

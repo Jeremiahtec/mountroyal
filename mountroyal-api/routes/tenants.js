@@ -62,4 +62,27 @@ router.post('/', async (req, res) => {
     }
 });
 
+// DELETE a tenant and their associated ledger transactions
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    // 1. First, delete any transactions in the ledger linked to this tenant
+    // (This prevents PostgreSQL from throwing a Foreign Key constraint error)
+    await pool.query('DELETE FROM transactions WHERE tenant_id = $1', [id]);
+    
+    // 2. Now it is safe to delete the actual tenant
+    const result = await pool.query('DELETE FROM tenants WHERE id = $1 RETURNING *', [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Tenant not found in database." });
+    }
+    
+    res.json({ message: "Tenant and associated records deleted successfully!" });
+  } catch (err) {
+    console.error("Error deleting tenant:", err);
+    res.status(500).json({ error: "Server Error" });
+  }
+});
+
 module.exports = router;

@@ -42,6 +42,15 @@ const fetchData = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
 
+    // If there is no session token, don't attempt to fetch
+    if (!token) {
+      console.warn("No active session found.");
+      setTenantsData([]);
+      setPropertiesList([]);
+      setIsLoading(false);
+      return;
+    }
+
     const headers = {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
@@ -55,15 +64,17 @@ const fetchData = async () => {
     const tenants = await tenantsRes.json();
     const properties = await propertiesRes.json();
 
+    // Guardrail: Only set state if the response returned an Array
     setTenantsData(Array.isArray(tenants) ? tenants : []);
     setPropertiesList(Array.isArray(properties) ? properties : []);
-    setIsLoading(false);
   } catch (error) {
     console.error("Error fetching data:", error);
     setTenantsData([]);
     setPropertiesList([]);
+  } finally {
     setIsLoading(false);
   }
+};
   
   const safeTenantsData = Array.isArray(tenantsData) ? tenantsData : [];
   

@@ -109,4 +109,42 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// PUT (Update) an existing tenant
+router.put('/:id', verifyToken, async (req, res) => {
+  const { id } = req.params;
+  const { 
+    full_name, email, phone, property_id, 
+    room_assigned, rent_amount, amount_paid, 
+    next_due_date, status 
+  } = req.body;
+
+  try {
+    const updateQuery = `
+      UPDATE tenants 
+      SET full_name = $1, email = $2, phone = $3, property_id = $4, 
+          room_assigned = $5, rent_amount = $6, amount_paid = $7, 
+          next_due_date = $8, status = $9
+      WHERE id = $10
+      RETURNING *;
+    `;
+    
+    const values = [
+      full_name, email, phone, property_id, 
+      room_assigned, rent_amount, amount_paid, 
+      next_due_date, status, id
+    ];
+
+    const result = await pool.query(updateQuery, values);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Tenant not found" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error updating tenant:", error);
+    res.status(500).json({ error: "Server error while updating tenant" });
+  }
+});
+
 module.exports = router;

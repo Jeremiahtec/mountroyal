@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Building, Users, Wallet, AlertCircle, ArrowUpRight, Loader2, ArrowRight } from 'lucide-react';
+import { supabase } from '../supabaseClient';
 
 export default function Dashboard() {
   const [data, setData] = useState({
@@ -13,16 +14,28 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+
+        const headers = {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        };
+
         const [propRes, tenantRes, txnRes] = await Promise.all([
-          fetch('https://mountroyal-api2.onrender.com/api/properties'),
-          fetch('https://mountroyal-api2.onrender.com/api/tenants'),
-          fetch('https://mountroyal-api2.onrender.com/api/transactions')
+          fetch('https://mountroyal-api2.onrender.com/api/properties', { headers }),
+          fetch('https://mountroyal-api2.onrender.com/api/tenants', { headers }),
+          fetch('https://mountroyal-api2.onrender.com/api/transactions', { headers })
         ]);
         
+        const propertiesData = await propRes.json();
+        const tenantsData = await tenantRes.json();
+        const txnData = await txnRes.json();
+
         setData({
-          properties: await propRes.json(),
-          tenants: await tenantRes.json(),
-          transactions: await txnRes.json()
+          properties: Array.isArray(propertiesData) ? propertiesData : [],
+          tenants: Array.isArray(tenantsData) ? tenantsData : [],
+          transactions: Array.isArray(txnData) ? txnData : []
         });
         setIsLoading(false);
       } catch (error) {
@@ -43,18 +56,22 @@ export default function Dashboard() {
     );
   }
 
-  // --- DYNAMIC CALCULATIONS ---
-  const totalRooms = data.properties.reduce((sum, p) => sum + p.total_rooms, 0);
-  const totalOccupied = data.tenants.length;
+  // --- SAFE DYNAMIC CALCULATIONS ---
+  const safeProperties = Array.isArray(data.properties) ? data.properties : [];
+  const safeTenants = Array.isArray(data.tenants) ? data.tenants : [];
+  const safeTransactions = Array.isArray(data.transactions) ? data.transactions : [];
+
+  const totalRooms = safeProperties.reduce((sum, p) => sum + (Number(p.total_rooms) || 0), 0);
+  const totalOccupied = safeTenants.length;
   const occupancyRate = totalRooms > 0 ? Math.round((totalOccupied / totalRooms) * 100) : 0;
   
-  const totalRevenue = data.transactions.reduce((sum, t) => sum + Number(t.amount), 0);
+  const totalRevenue = safeTransactions.reduce((sum, t) => sum + Number(t.amount || 0), 0);
   
-  const pendingTenants = data.tenants.filter(t => t.status !== 'Paid');
-  const totalPending = pendingTenants.reduce((sum, t) => sum + Number(t.rent_amount), 0);
+  const pendingTenants = safeTenants.filter(t => t.status !== 'Paid');
+  const totalPending = pendingTenants.reduce((sum, t) => sum + Number(t.rent_amount || 0), 0);
 
   // Get the 4 most recent transactions for the activity feed
-  const recentTransactions = data.transactions.slice(0, 4);
+  const recentTransactions = safeTransactions.slice(0, 4);
 
   return (
     <div className="max-w-7xl mx-auto pb-12">
@@ -103,7 +120,7 @@ export default function Dashboard() {
           </div>
           <div>
             <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">Active Tenants</p>
-            <h3 className="text-2xl font-extrabold text-brandNavy">{data.tenants.length}</h3>
+            <h3 className="text-2xl font-extrabold text-brandNavy">{safeTenants.length}</h3>
           </div>
         </div>
 
@@ -143,8 +160,8 @@ export default function Dashboard() {
                     <tr key={idx} className="hover:bg-slate-50 transition-colors">
                       <td className="p-5 font-bold text-brandNavy">{txn.tenant_name || 'Deleted Tenant'}</td>
                       <td className="p-5 text-slate-500 font-medium">{txn.property_name || 'N/A'}</td>
-                      <td className="p-5 font-bold text-brandGreen">₦ {Number(txn.amount).toLocaleString()}</td>
-                      <td className="p-5 text-right text-slate-400 font-medium">{new Date(txn.payment_date).toLocaleDateString()}</td>
+                      <td className="p-5 font-bold text-brandGreen">₦ {Number(txn.amount || 0).toLocaleString()}</td>
+                      <td className="p-5 text-right text-slate-400 font-medium">{txn.payment_date ? new Date(txn.payment_date).toLocaleDateString() : 'N/A'}</td>
                     </tr>
                   ))
                 ) : (
@@ -174,7 +191,7 @@ export default function Dashboard() {
                       <p className="text-xs font-medium text-slate-400">{tenant.property_name || 'Unassigned'}</p>
                     </div>
                     <span className="text-xs font-bold bg-red-50 text-red-600 px-2 py-1 rounded-md">
-                      ₦ {Number(tenant.rent_amount).toLocaleString()}
+                      ₦ {Number(tenant.rent_amount || 0).toLocaleString()}
                     </span>
                   </div>
                 ))}

@@ -75,13 +75,6 @@ const fetchData = async () => {
     setIsLoading(false);
   }
 };
-  
-  const safeTenantsData = Array.isArray(tenantsData) ? tenantsData : [];
-  
-  const filteredTenants = safeTenantsData.filter(tenant => 
-    tenant.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    (tenant.room_assigned && tenant.room_assigned.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
 };
 
 

@@ -3,23 +3,41 @@ const router = express.Router();
 const pool = require('../config/db'); 
 const verifyToken = require('../middleware/authMiddleware');
 
+// Helper function to fetch a single tenant with property details
+const fetchTenantWithProperty = async (clientOrPool, tenantId) => {
+  const query = `
+    SELECT 
+      t.*, 
+      p.name AS property_name 
+    FROM tenants t
+    LEFT JOIN properties p ON t.property_id = p.id
+    WHERE t.id = $1;
+  `;
+  const { rows } = await clientOrPool.query(query, [tenantId]);
+  return rows[0];
+};
+
 // 1. GET ALL ACTIVE TENANTS
-router.get('/', async (req, res) => {
+router.get('/', verifyToken, async (req, res) => {
   try {
-    // Only fetch tenants where is_archived is false (or null)
-    const result = await pool.query(
-      'SELECT * FROM tenants WHERE is_archived = false OR is_archived IS NULL ORDER BY id DESC'
-    );
-    res.json(result.rows);
+    const query = `
+      SELECT 
+        t.*, 
+        p.name AS property_name 
+      FROM tenants t
+      LEFT JOIN properties p ON t.property_id = p.id
+      ORDER BY t.created_at DESC;
+    `;
+    const { rows } = await pool.query(query);
+    res.json(rows);
   } catch (err) {
     console.error("Error fetching tenants:", err);
-    res.status(500).json({ error: "Server Error" });
+    res.status(500).json({ error: "Server error" });
   }
 });
 
 // 2. CREATE A NEW TENANT AND SYNC TO LEDGER
-router.post('/', async (req, res) => {
-  // Destructure the incoming data from the React frontend
+router.post('/', verifyToken, async (req, res) => {
   const { 
     full_name, 
     email, 
@@ -32,23 +50,25 @@ router.post('/', async (req, res) => {
     status 
   } = req.body;
 
-  // We use client.connect() instead of pool.query() because we need a transaction (BEGIN/COMMIT)
+  // Sanitize property_id to null if empty string is sent
+  const sanitizedPropertyId = property_id || null;
+
   const client = await pool.connect();
 
   try {
-    await client.query('BEGIN'); // Start the database transaction
+    await client.query('BEGIN');
 
-    // Step A: Insert the tenant into the database
+    // Step A: Insert tenant
     const tenantQuery = `
       INSERT INTO tenants (full_name, email, phone, property_id, room_assigned, rent_amount, amount_paid, next_due_date, status)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      RETURNING *;
+      RETURNING id;
     `;
     const tenantValues = [
       full_name, 
       email, 
       phone, 
-      property_id, 
+      sanitizedPropertyId, 
       room_assigned, 
       rent_amount, 
       amount_paid, 
@@ -57,17 +77,17 @@ router.post('/', async (req, res) => {
     ];
     
     const tenantResult = await client.query(tenantQuery, tenantValues);
-    const newTenant = tenantResult.rows[0];
+    const newTenantId = tenantResult.rows[0].id;
 
-    // Step B: If the tenant paid money during onboarding, log it in the transactions table
+    // Step B: Log payment in transactions if applicable
     if (Number(amount_paid) > 0) {
       const transactionQuery = `
         INSERT INTO transactions (tenant_id, property_id, amount, transaction_type, status, date)
         VALUES ($1, $2, $3, $4, $5, CURRENT_DATE)
       `;
       const transactionValues = [
-        newTenant.id, 
-        property_id, 
+        newTenantId, 
+        sanitizedPropertyId, 
         amount_paid, 
         'Rent Payment', 
         'Completed'
@@ -76,24 +96,26 @@ router.post('/', async (req, res) => {
       await client.query(transactionQuery, transactionValues);
     }
 
-    await client.query('COMMIT'); // Lock the data into the database permanently
-    res.status(201).json(newTenant); // Send the successful data back to the frontend
+    await client.query('COMMIT');
+
+    // Fetch full tenant record with property_name before returning to frontend
+    const createdTenant = await fetchTenantWithProperty(pool, newTenantId);
+    res.status(201).json(createdTenant);
 
   } catch (err) {
-    await client.query('ROLLBACK'); // If anything fails, undo everything so data isn't corrupted
+    await client.query('ROLLBACK');
     console.error("Transaction Failed:", err.message);
     res.status(500).json({ error: "Server Error" });
   } finally {
-    client.release(); // Release the database connection back to the pool
+    client.release();
   }
 });
 
 // 3. SOFT DELETE A TENANT
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
   
   try {
-    // Instead of destroying the data, we just flip the is_archived switch to true
     const result = await pool.query(
       'UPDATE tenants SET is_archived = true WHERE id = $1 RETURNING *', 
       [id]
@@ -110,7 +132,7 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// PUT (Update) an existing tenant
+// 4. PUT (Update) AN EXISTING TENANT
 router.put('/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
   const { 
@@ -119,6 +141,8 @@ router.put('/:id', verifyToken, async (req, res) => {
     next_due_date, status 
   } = req.body;
 
+  const sanitizedPropertyId = property_id || null;
+
   try {
     const updateQuery = `
       UPDATE tenants 
@@ -126,11 +150,11 @@ router.put('/:id', verifyToken, async (req, res) => {
           room_assigned = $5, rent_amount = $6, amount_paid = $7, 
           next_due_date = $8, status = $9
       WHERE id = $10
-      RETURNING *;
+      RETURNING id;
     `;
     
     const values = [
-      full_name, email, phone, property_id, 
+      full_name, email, phone, sanitizedPropertyId, 
       room_assigned, rent_amount, amount_paid, 
       next_due_date, status, id
     ];
@@ -141,7 +165,9 @@ router.put('/:id', verifyToken, async (req, res) => {
       return res.status(404).json({ error: "Tenant not found" });
     }
 
-    res.json(result.rows[0]);
+    // Fetch full tenant record with property_name before returning
+    const updatedTenant = await fetchTenantWithProperty(pool, id);
+    res.json(updatedTenant);
   } catch (error) {
     console.error("Error updating tenant:", error);
     res.status(500).json({ error: "Server error while updating tenant" });

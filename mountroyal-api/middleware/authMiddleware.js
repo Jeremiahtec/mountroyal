@@ -32,4 +32,13 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
+const { data, error } = await supabase.auth.getUser(token);
+
+    if (error || !data.user) {
+      // NEW: This will print the exact rejection reason into your Render logs
+      console.log("SUPABASE REJECTION REASON:", error ? error.message : "No user found in token");
+      
+      return res.status(403).json({ error: 'Access Denied: Invalid or expired token' });
+    }
+
 module.exports = verifyToken;

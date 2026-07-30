@@ -1,44 +1,26 @@
-import { useState, useEffect, useRef } from "react";
-import {
-  Search,
-  Filter,
-  Download,
-  MoreHorizontal,
-  Plus,
-  Loader2,
-  Edit2,
-  Trash2,
-} from "lucide-react";
-import Drawer from "../components/Drawer";
-import { supabase } from "../supabaseClient";
+import { useState, useEffect, useRef } from 'react';
+import { Search, Filter, Download, MoreHorizontal, Plus, Loader2, Edit2, Trash2 } from 'lucide-react';
+import Drawer from '../components/Drawer';
+import { supabase } from '../supabaseClient';
+
 export default function Tenants() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const itemsPerPage = 5; 
 
   const [tenantsData, setTenantsData] = useState([]);
-  const [propertiesList, setPropertiesList] = useState([]);
+  const [propertiesList, setPropertiesList] = useState([]); 
   const [isLoading, setIsLoading] = useState(true);
 
-  const [editingId, setEditingId] = useState(null);
-  const [activeMenu, setActiveMenu] = useState(null);
-  const menuRef = useRef(null);
+  const [editingId, setEditingId] = useState(null); 
+  const [activeMenu, setActiveMenu] = useState(null); 
+  const menuRef = useRef(null); 
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [tenantToDelete, setTenantToDelete] = useState(null);
 
-  const emptyForm = {
-    full_name: "",
-    email: "",
-    phone: "",
-    property_id: "",
-    room_assigned: "",
-    rent_amount: "",
-    amount_paid: "",
-    next_due_date: "",
-    status: "Paid",
-  };
+  const emptyForm = { full_name: '', email: '', phone: '', property_id: '', room_assigned: '', rent_amount: '', amount_paid: '', next_due_date: '', status: 'Paid' };
   const [formData, setFormData] = useState(emptyForm);
 
   useEffect(() => {
@@ -55,24 +37,19 @@ export default function Tenants() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // --- 2. SECURE FETCH CALL ---
   const fetchData = async () => {
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-
+      
       const headers = {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
       };
 
       const [tenantsRes, propertiesRes] = await Promise.all([
-        fetch("https://mountroyal-api2.onrender.com/api/tenants", { headers }),
-        fetch("https://mountroyal-api2.onrender.com/api/properties", {
-          headers,
-        }),
+        fetch('https://mountroyal-api2.onrender.com/api/tenants', { headers }),
+        fetch('https://mountroyal-api2.onrender.com/api/properties', { headers })
       ]);
       const tenants = await tenantsRes.json();
       const properties = await propertiesRes.json();
@@ -86,57 +63,52 @@ export default function Tenants() {
   };
 
   const handleSaveTenant = async () => {
-    // FIX FOR POINT 3: Do not allow saving without complete details
+    // 1. Strict validation: Do not allow saving without complete details
     if (!formData.full_name || !formData.email || !formData.rent_amount) {
-      alert(
-        "Please fill out all required fields (Name, Email, and Total Rent).",
-      );
+      alert("Please fill out all required fields (Name, Email, and Total Rent).");
       return;
     }
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
 
-      const url = editingId
-        ? `https://mountroyal-api2.onrender.com/api/tenants/${editingId}`
-        : "https://mountroyal-api2.onrender.com/api/tenants";
+      // 2. Strict token validation for debugging 403s
+      if (!token) {
+        alert("Authentication missing: Your session token is empty. Please sign out and sign back in.");
+        return; 
+      }
 
-      const method = editingId ? "PUT" : "POST";
+      const url = editingId 
+        ? `https://mountroyal-api2.onrender.com/api/tenants/${editingId}` 
+        : 'https://mountroyal-api2.onrender.com/api/tenants';
+        
+      const method = editingId ? 'PUT' : 'POST';
 
-      // FIX FOR POINTS 2 & 5: Clean the payload before sending!
-      // Databases hate empty strings where numbers/dates should be.
+      // 3. Clean the payload so empty fields don't crash the database
       const payload = {
         ...formData,
-        // Convert property_id to a number, or send null so it doesn't break SQL relations
-        property_id: formData.property_id
-          ? parseInt(formData.property_id)
-          : null,
-        // Ensure numbers are actually numbers
+        property_id: formData.property_id ? parseInt(formData.property_id) : null,
         rent_amount: parseFloat(formData.rent_amount) || 0,
         amount_paid: parseFloat(formData.amount_paid) || 0,
-        // Ensure empty dates are sent as null, not empty strings
-        next_due_date: formData.next_due_date ? formData.next_due_date : null,
+        next_due_date: formData.next_due_date ? formData.next_due_date : null
       };
 
       const response = await fetch(url, {
         method: method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
         },
-        body: JSON.stringify(payload), // Send the sanitized data
+        body: JSON.stringify(payload)
       });
-
+      
       if (response.ok) {
-        fetchData();
+        fetchData(); 
         closeDrawer();
       } else {
-        // This will tell us exactly why an edit might be failing
         const errorData = await response.json();
-        alert(`Failed to save tenant: ${errorData.error || "Server error"}`);
+        alert(`Failed to save tenant: ${errorData.error || 'Server error'}`);
       }
     } catch (error) {
       console.error("Error saving tenant:", error);
@@ -147,29 +119,23 @@ export default function Tenants() {
   const initiateDelete = (id) => {
     setTenantToDelete(id);
     setIsDeleteModalOpen(true);
-    setActiveMenu(null);
+    setActiveMenu(null); 
   };
 
-  // --- 4. SECURE DELETE CALL ---
   const confirmDelete = async () => {
     if (!tenantToDelete) return;
-
+    
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
 
-      await fetch(
-        `https://mountroyal-api2.onrender.com/api/tenants/${tenantToDelete}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-      fetchData();
+      await fetch(`https://mountroyal-api2.onrender.com/api/tenants/${tenantToDelete}`, { 
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      fetchData(); 
     } catch (error) {
       console.error("Error deleting tenant:", error);
     } finally {
@@ -179,12 +145,10 @@ export default function Tenants() {
   };
 
   const handleEditClick = (tenant) => {
-    const formattedDate = new Date(tenant.next_due_date)
-      .toISOString()
-      .split("T")[0];
+    const formattedDate = tenant.next_due_date ? new Date(tenant.next_due_date).toISOString().split('T')[0] : '';
     setFormData({
       ...tenant,
-      next_due_date: formattedDate,
+      next_due_date: formattedDate
     });
     setEditingId(tenant.id);
     setIsDrawerOpen(true);
@@ -197,52 +161,36 @@ export default function Tenants() {
     setFormData(emptyForm);
   };
 
-  const getInitials = (name) =>
-    name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .substring(0, 2)
-      .toUpperCase();
+  const getInitials = (name) => name ? name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'MR';
   const getStatusStyle = (status) => {
-    if (status === "Paid") return "bg-statusPaid text-statusPaidText";
-    if (status === "Due Soon") return "bg-statusDue text-statusDueText";
-    return "bg-red-50 text-red-600";
+    if (status === 'Paid') return 'bg-statusPaid text-statusPaidText';
+    if (status === 'Part Payment') return 'bg-orange-100 text-orange-700';
+    if (status === 'Due Soon') return 'bg-statusDue text-statusDueText';
+    return 'bg-red-50 text-red-600'; 
   };
 
-  const filteredTenants = tenantsData.filter(
-    (tenant) =>
-      tenant.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (tenant.room_assigned &&
-        tenant.room_assigned.toLowerCase().includes(searchQuery.toLowerCase())),
+  const filteredTenants = tenantsData.filter(tenant => 
+    tenant.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    (tenant.room_assigned && tenant.room_assigned.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const totalPages = Math.ceil(filteredTenants.length / itemsPerPage);
-  const paginatedTenants = filteredTenants.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage,
-  );
+  const paginatedTenants = filteredTenants.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
     <div className="max-w-7xl mx-auto">
+      
       {/* Header */}
       <div className="flex justify-between items-end mb-8">
         <div>
-          <h2 className="text-4xl font-extrabold text-brandNavy tracking-tight">
-            Tenant Directory
-          </h2>
-          <p className="text-slate-500 mt-2 text-base">
-            Manage and view all active tenants across your properties.
-          </p>
+          <h2 className="text-4xl font-extrabold text-brandNavy tracking-tight">Tenant Directory</h2>
+          <p className="text-slate-500 mt-2 text-base">Manage and view all active tenants across your properties.</p>
         </div>
         <div className="flex gap-3">
           <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 px-4 py-2.5 rounded-lg font-semibold hover:bg-slate-50 transition-colors shadow-sm">
             <Download size={18} /> Export CSV
           </button>
-          <button
-            onClick={() => setIsDrawerOpen(true)}
-            className="flex items-center gap-2 bg-brandNavy text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-slate-800 transition-colors shadow-soft"
-          >
+          <button onClick={() => setIsDrawerOpen(true)} className="flex items-center gap-2 bg-brandNavy text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-slate-800 transition-colors shadow-soft">
             <Plus size={18} /> New Tenant
           </button>
         </div>
@@ -250,21 +198,16 @@ export default function Tenants() {
 
       {/* Main Table Card */}
       <div className="bg-cardWhite rounded-2xl shadow-soft border border-slate-100 overflow-visible">
+        
         {/* Toolbar */}
         <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
           <div className="relative w-80">
-            <Search
-              size={18}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-            />
-            <input
-              type="text"
-              placeholder="Search tenants by name or room..."
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input 
+              type="text" 
+              placeholder="Search tenants by name or room..." 
               value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setCurrentPage(1);
-              }}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
               className="w-full bg-white border border-slate-200 rounded-lg py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-brandNavy/20 shadow-sm"
             />
           </div>
@@ -295,55 +238,38 @@ export default function Tenants() {
               <tbody className="divide-y divide-slate-50 text-sm relative">
                 {paginatedTenants.length > 0 ? (
                   paginatedTenants.map((tenant) => (
-                    <tr
-                      key={tenant.id}
-                      className="hover:bg-slate-50 transition-colors group"
-                    >
+                    <tr key={tenant.id} className="hover:bg-slate-50 transition-colors group">
                       <td className="p-5">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm bg-blue-100 text-blue-700">
                             {getInitials(tenant.full_name)}
                           </div>
                           <div>
-                            <p className="font-bold text-brandNavy">
-                              {tenant.full_name}
-                            </p>
-                            <p className="text-xs text-slate-400 font-medium">
-                              {tenant.email}
-                            </p>
+                            <p className="font-bold text-brandNavy">{tenant.full_name}</p>
+                            <p className="text-xs text-slate-400 font-medium">{tenant.email}</p>
                           </div>
                         </div>
                       </td>
                       <td className="p-5">
                         <div className="flex flex-col">
-                          <span className="font-bold text-brandNavy">
-                            {tenant.property_name || "Unassigned"}
-                          </span>
-                          <span className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                            Room: {tenant.room_assigned || "N/A"}
-                          </span>
+                           <span className="font-bold text-brandNavy">{tenant.property_name || 'Unassigned'}</span>
+                           <span className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                              Room: {tenant.room_assigned || 'N/A'}
+                           </span>
                         </div>
                       </td>
-                      <td className="p-5 font-bold text-brandNavy">
-                        ₦ {Number(tenant.rent_amount).toLocaleString()}
-                      </td>
-                      <td className="p-5 text-slate-500 font-medium">
-                        {new Date(tenant.next_due_date).toLocaleDateString()}
-                      </td>
+                      <td className="p-5 font-bold text-brandNavy">₦ {Number(tenant.rent_amount || 0).toLocaleString()}</td>
+                      <td className="p-5 text-slate-500 font-medium">{tenant.next_due_date ? new Date(tenant.next_due_date).toLocaleDateString() : 'N/A'}</td>
                       <td className="p-5">
-                        <span
-                          className={`px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wide ${getStatusStyle(tenant.status)}`}
-                        >
-                          {tenant.status}
+                        <span className={`px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wide ${getStatusStyle(tenant.status)}`}>
+                          {tenant.status || 'Paid'}
                         </span>
                       </td>
                       <td className="p-5 text-right relative">
-                        <button
+                        <button 
                           onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveMenu(
-                              activeMenu === tenant.id ? null : tenant.id,
-                            );
+                             e.stopPropagation();
+                             setActiveMenu(activeMenu === tenant.id ? null : tenant.id);
                           }}
                           className="text-slate-400 hover:text-brandNavy transition-colors p-2 rounded-md hover:bg-slate-100"
                         >
@@ -351,17 +277,14 @@ export default function Tenants() {
                         </button>
 
                         {activeMenu === tenant.id && (
-                          <div
-                            ref={menuRef}
-                            className="absolute right-8 mt-2 w-36 bg-white border border-slate-100 rounded-lg shadow-lg z-50 overflow-hidden py-1"
-                          >
-                            <button
+                          <div ref={menuRef} className="absolute right-8 mt-2 w-36 bg-white border border-slate-100 rounded-lg shadow-lg z-50 overflow-hidden py-1">
+                            <button 
                               onClick={() => handleEditClick(tenant)}
                               className="w-full text-left px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-brandNavy flex items-center gap-2 transition-colors"
                             >
                               <Edit2 size={14} /> Edit Details
                             </button>
-                            <button
+                            <button 
                               onClick={() => initiateDelete(tenant.id)}
                               className="w-full text-left px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
                             >
@@ -383,202 +306,67 @@ export default function Tenants() {
             </table>
           )}
         </div>
-
+        
         {/* Pagination */}
         {!isLoading && (
           <div className="p-5 border-t border-slate-100 flex justify-between items-center text-sm font-medium text-slate-500 bg-slate-50/50">
-            <p>
-              Showing{" "}
-              {filteredTenants.length === 0
-                ? 0
-                : (currentPage - 1) * itemsPerPage + 1}{" "}
-              to {Math.min(currentPage * itemsPerPage, filteredTenants.length)}{" "}
-              of {filteredTenants.length} tenants
-            </p>
+            <p>Showing {filteredTenants.length === 0 ? 0 : ((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredTenants.length)} of {filteredTenants.length} tenants</p>
             <div className="flex gap-1">
-              <button
-                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-                className={`px-3 py-1 border border-slate-200 rounded-md transition-colors ${currentPage === 1 ? "bg-slate-50 text-slate-400 cursor-not-allowed" : "bg-white hover:bg-slate-50"}`}
-              >
-                Prev
-              </button>
-              <button className="px-3 py-1 bg-brandNavy text-white rounded-md">
-                {currentPage}
-              </button>
-              <button
-                onClick={() =>
-                  setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-                }
-                disabled={currentPage === totalPages || totalPages === 0}
-                className={`px-3 py-1 border border-slate-200 rounded-md transition-colors ${currentPage === totalPages || totalPages === 0 ? "bg-slate-50 text-slate-400 cursor-not-allowed" : "bg-white hover:bg-slate-50"}`}
-              >
-                Next
-              </button>
+              <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className={`px-3 py-1 border border-slate-200 rounded-md transition-colors ${currentPage === 1 ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : 'bg-white hover:bg-slate-50'}`}>Prev</button>
+              <button className="px-3 py-1 bg-brandNavy text-white rounded-md">{currentPage}</button>
+              <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages || totalPages === 0} className={`px-3 py-1 border border-slate-200 rounded-md transition-colors ${currentPage === totalPages || totalPages === 0 ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : 'bg-white hover:bg-slate-50'}`}>Next</button>
             </div>
           </div>
         )}
       </div>
 
       {/* Dynamic Drawer */}
-      <Drawer
-        isOpen={isDrawerOpen}
-        onClose={closeDrawer}
-        title={editingId ? "Edit Tenant Details" : "Add New Tenant"}
-      >
+      <Drawer isOpen={isDrawerOpen} onClose={closeDrawer} title={editingId ? "Edit Tenant Details" : "Add New Tenant"}>
         <div className="space-y-5 pb-8">
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">
-              Full Name
-            </label>
-            <input
-              type="text"
-              value={formData.full_name}
-              onChange={(e) =>
-                setFormData({ ...formData, full_name: e.target.value })
-              }
-              className="w-full border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-brandNavy/20"
-              placeholder="e.g. John Doe"
-            />
-          </div>
-
+          <div><label className="block text-sm font-bold text-slate-700 mb-1">Full Name</label><input type="text" value={formData.full_name} onChange={(e) => setFormData({...formData, full_name: e.target.value})} className="w-full border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-brandNavy/20" placeholder="e.g. John Doe" /></div>
+          
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">
-                Email
-              </label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) =>
-                  setFormData({ ...formData, email: e.target.value })
-                }
-                className="w-full border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-brandNavy/20"
-                placeholder="john@email.com"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">
-                Phone
-              </label>
-              <input
-                type="tel"
-                value={formData.phone}
-                onChange={(e) =>
-                  setFormData({ ...formData, phone: e.target.value })
-                }
-                className="w-full border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-brandNavy/20"
-                placeholder="+234..."
-              />
-            </div>
+            <div><label className="block text-sm font-bold text-slate-700 mb-1">Email</label><input type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-brandNavy/20" placeholder="john@email.com" /></div>
+            <div><label className="block text-sm font-bold text-slate-700 mb-1">Phone</label><input type="tel" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="w-full border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-brandNavy/20" placeholder="+234..." /></div>
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">
-              Assign Property
-            </label>
-            <select
-              value={formData.property_id || ""}
-              onChange={(e) =>
-                setFormData({ ...formData, property_id: e.target.value })
-              }
-              className="w-full border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-brandNavy/20 bg-white"
-            >
+            <label className="block text-sm font-bold text-slate-700 mb-1">Assign Property</label>
+            <select value={formData.property_id || ''} onChange={(e) => setFormData({...formData, property_id: e.target.value})} className="w-full border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-brandNavy/20 bg-white">
               <option value="">Select a building...</option>
-              {propertiesList.map((prop) => (
-                <option key={prop.id} value={prop.id}>
-                  {prop.name}
-                </option>
+              {propertiesList.map(prop => (
+                <option key={prop.id} value={prop.id}>{prop.name}</option>
               ))}
             </select>
           </div>
-
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">
-              Room / Unit
-            </label>
-            <input
-              type="text"
-              value={formData.room_assigned}
-              onChange={(e) =>
-                setFormData({ ...formData, room_assigned: e.target.value })
-              }
-              className="w-full border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-brandNavy/20"
-              placeholder="e.g. 4B"
-            />
-          </div>
+          
+          <div><label className="block text-sm font-bold text-slate-700 mb-1">Room / Unit</label><input type="text" value={formData.room_assigned} onChange={(e) => setFormData({...formData, room_assigned: e.target.value})} className="w-full border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-brandNavy/20" placeholder="e.g. 4B" /></div>
 
           <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">
-                Total Rent (₦)
-              </label>
-              <input
-                type="number"
-                value={formData.rent_amount}
-                onChange={(e) =>
-                  setFormData({ ...formData, rent_amount: e.target.value })
-                }
-                className="w-full border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-brandNavy/20"
-                placeholder="500000"
-              />
+              <label className="block text-sm font-bold text-slate-700 mb-1">Total Rent (₦)</label>
+              <input type="number" value={formData.rent_amount} onChange={(e) => setFormData({...formData, rent_amount: e.target.value})} className="w-full border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-brandNavy/20" placeholder="500000" />
             </div>
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1 text-brandGreen">
-                Amount Paid Now (₦)
-              </label>
-              <input
-                type="number"
-                value={formData.amount_paid}
-                onChange={(e) =>
-                  setFormData({ ...formData, amount_paid: e.target.value })
-                }
-                className="w-full border border-brandGreen/30 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-brandGreen/20"
-                placeholder="300000"
-              />
+              <label className="block text-sm font-bold text-slate-700 mb-1 text-brandGreen">Amount Paid Now (₦)</label>
+              <input type="number" value={formData.amount_paid} onChange={(e) => setFormData({...formData, amount_paid: e.target.value})} className="w-full border border-brandGreen/30 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-brandGreen/20" placeholder="300000" />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">
-                Next Due Date
-              </label>
-              <input
-                type="date"
-                value={formData.next_due_date}
-                onChange={(e) =>
-                  setFormData({ ...formData, next_due_date: e.target.value })
-                }
-                className="w-full border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-brandNavy/20 text-slate-600"
-              />
-            </div>
-            <div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">
-                  Payment Status
-                </label>
-                <select
-                  value={formData.status}
-                  onChange={(e) =>
-                    setFormData({ ...formData, status: e.target.value })
-                  }
-                  className="w-full border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-brandNavy/20 bg-white"
-                >
+             <div><label className="block text-sm font-bold text-slate-700 mb-1">Next Due Date</label><input type="date" value={formData.next_due_date} onChange={(e) => setFormData({...formData, next_due_date: e.target.value})} className="w-full border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-brandNavy/20 text-slate-600" /></div>
+             <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Payment Status</label>
+                <select value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value})} className="w-full border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-brandNavy/20 bg-white">
                   <option value="Paid">Paid</option>
-                  <option value="Part Payment">Part Payment</option>{" "}
-                  {/* <-- Added Part Payment */}
+                  <option value="Part Payment">Part Payment</option>
                   <option value="Due Soon">Due Soon</option>
                   <option value="Overdue">Overdue</option>
                 </select>
-              </div>
-            </div>
+             </div>
           </div>
-
-          <button
-            onClick={handleSaveTenant}
-            className="w-full mt-8 bg-brandNavy text-white py-3 rounded-lg font-bold hover:bg-slate-800 transition-colors shadow-soft"
-          >
+          
+          <button onClick={handleSaveTenant} className="w-full mt-8 bg-brandNavy text-white py-3 rounded-lg font-bold hover:bg-slate-800 transition-colors shadow-soft">
             {editingId ? "Update Tenant" : "Save Tenant to Database"}
           </button>
         </div>
@@ -588,12 +376,9 @@ export default function Tenants() {
       {isDeleteModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white p-6 rounded-2xl shadow-xl max-w-sm w-full mx-4 border border-slate-100">
-            <h3 className="text-xl font-extrabold text-brandNavy mb-2">
-              Remove Tenant
-            </h3>
+            <h3 className="text-xl font-extrabold text-brandNavy mb-2">Remove Tenant</h3>
             <p className="text-sm text-slate-500 mb-6 font-medium">
-              Are you sure you want to remove this tenant? Their financial
-              records will be safely preserved in the ledger.
+              Are you sure you want to remove this tenant? Their financial records will be safely preserved in the ledger.
             </p>
             <div className="flex justify-end gap-3">
               <button
@@ -615,6 +400,7 @@ export default function Tenants() {
           </div>
         </div>
       )}
+
     </div>
   );
 }

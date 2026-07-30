@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../config/db'); 
+const verifyToken = require('../middleware/authMiddleware');
 
 // 1. GET ALL ACTIVE TENANTS
 router.get('/', async (req, res) => {

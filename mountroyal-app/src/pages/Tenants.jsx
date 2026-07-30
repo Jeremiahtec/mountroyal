@@ -37,30 +37,42 @@ export default function Tenants() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const fetchData = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      
-      const headers = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      };
+const fetchData = async () => {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
 
-      const [tenantsRes, propertiesRes] = await Promise.all([
-        fetch('https://mountroyal-api2.onrender.com/api/tenants', { headers }),
-        fetch('https://mountroyal-api2.onrender.com/api/properties', { headers })
-      ]);
-      const tenants = await tenantsRes.json();
-      const properties = await propertiesRes.json();
-      setTenantsData(tenants);
-      setPropertiesList(properties);
-      setIsLoading(false);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      setIsLoading(false);
-    }
-  };
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    };
+
+    const [tenantsRes, propertiesRes] = await Promise.all([
+      fetch('https://mountroyal-api2.onrender.com/api/tenants', { headers }),
+      fetch('https://mountroyal-api2.onrender.com/api/properties', { headers })
+    ]);
+
+    const tenants = await tenantsRes.json();
+    const properties = await propertiesRes.json();
+
+    setTenantsData(Array.isArray(tenants) ? tenants : []);
+    setPropertiesList(Array.isArray(properties) ? properties : []);
+    setIsLoading(false);
+  } catch (error) {
+    console.error("Error fetching data:", error);
+    setTenantsData([]);
+    setPropertiesList([]);
+    setIsLoading(false);
+  }
+  
+  const safeTenantsData = Array.isArray(tenantsData) ? tenantsData : [];
+  
+  const filteredTenants = safeTenantsData.filter(tenant => 
+    tenant.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    (tenant.room_assigned && tenant.room_assigned.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+};
+
 
   const handleSaveTenant = async () => {
     // 1. Strict validation: Do not allow saving without complete details

@@ -37,49 +37,44 @@ export default function Tenants() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-const fetchData = async () => {
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token;
+  const fetchData = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      
+      if (!token) {
+        console.warn("No active session found.");
+        setTenantsData([]);
+        setPropertiesList([]);
+        setIsLoading(false);
+        return;
+      }
 
-    // If there is no session token, don't attempt to fetch
-    if (!token) {
-      console.warn("No active session found.");
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      };
+
+      const [tenantsRes, propertiesRes] = await Promise.all([
+        fetch('https://mountroyal-api2.onrender.com/api/tenants', { headers }),
+        fetch('https://mountroyal-api2.onrender.com/api/properties', { headers })
+      ]);
+      
+      const tenants = await tenantsRes.json();
+      const properties = await propertiesRes.json();
+      
+      setTenantsData(Array.isArray(tenants) ? tenants : []);
+      setPropertiesList(Array.isArray(properties) ? properties : []);
+    } catch (error) {
+      console.error("Error fetching data:", error);
       setTenantsData([]);
       setPropertiesList([]);
+    } finally {
       setIsLoading(false);
-      return;
     }
-
-    const headers = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    };
-
-    const [tenantsRes, propertiesRes] = await Promise.all([
-      fetch('https://mountroyal-api2.onrender.com/api/tenants', { headers }),
-      fetch('https://mountroyal-api2.onrender.com/api/properties', { headers })
-    ]);
-
-    const tenants = await tenantsRes.json();
-    const properties = await propertiesRes.json();
-
-    // Guardrail: Only set state if the response returned an Array
-    setTenantsData(Array.isArray(tenants) ? tenants : []);
-    setPropertiesList(Array.isArray(properties) ? properties : []);
-  } catch (error) {
-    console.error("Error fetching data:", error);
-    setTenantsData([]);
-    setPropertiesList([]);
-  } finally {
-    setIsLoading(false);
-  }
-};
-};
-
+  };
 
   const handleSaveTenant = async () => {
-    // 1. Strict validation: Do not allow saving without complete details
     if (!formData.full_name || !formData.email || !formData.rent_amount) {
       alert("Please fill out all required fields (Name, Email, and Total Rent).");
       return;
@@ -89,7 +84,6 @@ const fetchData = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
 
-      // 2. Strict token validation for debugging 403s
       if (!token) {
         alert("Authentication missing: Your session token is empty. Please sign out and sign back in.");
         return; 
@@ -101,7 +95,6 @@ const fetchData = async () => {
         
       const method = editingId ? 'PUT' : 'POST';
 
-      // 3. Clean the payload so empty fields don't crash the database
       const payload = {
         ...formData,
         property_id: formData.property_id ? parseInt(formData.property_id) : null,
@@ -185,7 +178,8 @@ const fetchData = async () => {
     return 'bg-red-50 text-red-600'; 
   };
 
-  const filteredTenants = tenantsData.filter(tenant => 
+  const safeTenantsData = Array.isArray(tenantsData) ? tenantsData : [];
+  const filteredTenants = safeTenantsData.filter(tenant => 
     tenant.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
     (tenant.room_assigned && tenant.room_assigned.toLowerCase().includes(searchQuery.toLowerCase()))
   );

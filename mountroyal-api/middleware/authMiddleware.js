@@ -1,10 +1,3 @@
-const { createClient } = require('@supabase/supabase-js');
-
-const supabaseUrl = 'https://nrpwaovxkshmukuowyrv.supabase.co/rest/v1/';
-const supabaseAnonKey = 'sb_publishable_xOvxuMLpF3_5pfZuZArdkQ_p9j7Em8i';
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
 const verifyToken = async (req, res, next) => {
   try {
     // 1. Check if the frontend sent an Authorization header
@@ -20,25 +13,18 @@ const verifyToken = async (req, res, next) => {
     const { data, error } = await supabase.auth.getUser(token);
 
     if (error || !data.user) {
+      // THIS is where the log belongs!
+      console.log("SUPABASE REJECTION REASON:", error ? error.message : "No user found in token");
       return res.status(403).json({ error: 'Access Denied: Invalid or expired token' });
     }
 
     // 4. Token is good! Let the request pass through to the database
-    req.user = data.user; 
-    next(); 
+    req.user = data.user;
+    next();
   } catch (err) {
     console.error("Auth Middleware Error:", err);
     res.status(500).json({ error: 'Server authentication error' });
   }
 };
-
-const { data, error } = await supabase.auth.getUser(token);
-
-    if (error || !data.user) {
-      // NEW: This will print the exact rejection reason into your Render logs
-      console.log("SUPABASE REJECTION REASON:", error ? error.message : "No user found in token");
-      
-      return res.status(403).json({ error: 'Access Denied: Invalid or expired token' });
-    }
 
 module.exports = verifyToken;
